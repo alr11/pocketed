@@ -147,7 +147,24 @@ button { cursor: pointer; }
 .goal { display: flex; flex-direction: column; gap: 6px; }
 .goal-top { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; font-variant-numeric: tabular-nums; }
 .goal-bar { height: 8px; border-radius: 99px; background: rgba(243, 239, 224, .18); overflow: hidden; }
-.goal-bar i { display: block; height: 100%; background: var(--note-gold); border-radius: inherit; transition: width .4s ease; }
+.goal-bar { position: relative; }
+.goal-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--note-gold); border-radius: inherit; transition: width .4s ease; }
+.goal-bar i.est { opacity: .4; }
+.note-moved { margin: 0; font-size: 14px; font-variant-numeric: tabular-nums; }
+.note-moved b { color: var(--note-gold); }
+.tip {
+  background: var(--surface); border-radius: 16px; box-shadow: var(--shadow);
+  padding: 14px; display: flex; flex-direction: column; gap: 8px;
+  border-left: 4px solid var(--gold);
+}
+.tip h3 { margin: 0; font-size: 16px; }
+.tip p { margin: 0; font-size: 14px; color: var(--muted); }
+.tip .row { align-items: center; }
+.tip a { color: var(--accent); font-weight: 600; font-size: 14px; }
+.moves { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.moves li { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 15px; font-variant-numeric: tabular-nums; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.moves li:last-child { border-bottom: 0; }
+.moves small { color: var(--muted); }
 .note-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .note-btn {
   min-height: 40px; padding: 0 14px; border-radius: 12px; border: 1px solid rgba(243, 239, 224, .35);
@@ -360,6 +377,16 @@ button { cursor: pointer; }
       <section class="note" id="note" aria-label="Money saved"></section>
       <div class="week-head" id="week-head" aria-hidden="true"></div>
       <ul class="list" id="list"></ul>
+      <section class="tip" id="hts-tip" hidden aria-labelledby="hts-title">
+        <h3 id="hts-title">Get 50p for every £1 you save</h3>
+        <p>If you get Universal Credit and had take-home pay of £1 or more last month, the government's <b>Help to Save</b> scheme adds a 50% bonus: up to £1,200 over 4 years when you save £1 to £50 a month.</p>
+        <p>The current scheme closes to new savers in April 2027. Check GOV.UK for the latest rules. Pocketed isn't part of the scheme and earns nothing from it.</p>
+        <div class="row">
+          <a href="https://www.gov.uk/get-help-savings-low-income" target="_blank" rel="noopener">Check on GOV.UK</a>
+          <a href="https://www.moneyhelper.org.uk/en/savings/types-of-savings/help-to-save-explained" target="_blank" rel="noopener">MoneyHelper guide</a>
+          <button class="link-btn" type="button" id="hts-dismiss" style="margin-left:auto;color:var(--muted)">Hide</button>
+        </div>
+      </section>
       <div class="empty" id="empty" hidden>
         <h2>Pick your first money habit</h2>
         <p>Each day you stick to it, Pocketed adds what you'd usually have spent to your total.</p>
@@ -386,6 +413,20 @@ button { cursor: pointer; }
         <div class="row">
           <button class="btn primary" id="goal-save" type="button">Save goal</button>
           <button class="btn ghost" id="goal-clear" type="button">Remove goal</button>
+        </div>
+      </section>
+      <section>
+        <h3>Payday</h3>
+        <p>Pocketed can count your month from payday to payday, the way most people budget.</p>
+        <select class="input" id="payday" aria-label="Payday"></select>
+        <p id="payday-hint">If payday falls on a weekend, Pocketed uses the Friday before. Bank holidays aren't counted.</p>
+      </section>
+      <section>
+        <h3>Help to Save</h3>
+        <p>On Universal Credit and working? The government adds 50p for every £1 you save, up to £1,200 over 4 years.</p>
+        <div class="row">
+          <a class="btn ghost" style="display:inline-grid;place-items:center;text-decoration:none" href="https://www.gov.uk/get-help-savings-low-income" target="_blank" rel="noopener">Check on GOV.UK</a>
+          <button class="btn ghost" type="button" id="hts-show" hidden>Show tip on Today</button>
         </div>
       </section>
       <section>
@@ -482,6 +523,26 @@ button { cursor: pointer; }
   </form>
 </div>
 
+<div class="scrim" id="move-scrim" hidden>
+  <form class="sheet" id="move-sheet" role="dialog" aria-modal="true" aria-labelledby="move-title" novalidate>
+    <h2 id="move-title">Money moved to savings</h2>
+    <p class="hint" id="move-intro">Moved some of what you saved into a savings account or pot? Log it here so your total is real money, not just an estimate.</p>
+    <div class="field">
+      <label for="move-amount">Amount moved</label>
+      <div class="money-input"><span class="cur-sym">£</span><input id="move-amount" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off"></div>
+      <p class="error" id="move-error" hidden>Enter an amount above zero, like 20 or 12.50.</p>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn ghost" type="button" id="move-cancel">Cancel</button>
+      <button class="btn primary" type="submit">Log it</button>
+    </div>
+    <div class="field" id="move-history-wrap" hidden>
+      <span class="label">Recent</span>
+      <ul class="moves" id="move-history"></ul>
+    </div>
+  </form>
+</div>
+
 <div class="scrim" id="share-scrim" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="share-title">
     <h2 id="share-title">Share your progress</h2>
@@ -518,9 +579,11 @@ button { cursor: pointer; }
     { name: () => 'Coffee at home', amount: 350, days: WEEKDAYS, mode: 'fixed', color: COLORS[4] },
     { name: () => 'Pack lunch for work', amount: 600, days: WEEKDAYS, mode: 'fixed', color: COLORS[1] },
     { name: () => `${money(1)} saving challenge`, amount: 1, days: ALL_DAYS, mode: 'step', color: COLORS[3] },
+    { name: () => '52-week challenge', amount: 100, days: [1], mode: 'step', color: COLORS[5] },
     { name: () => `Save ${money(100)} a day`, amount: 100, days: ALL_DAYS, mode: 'fixed', color: COLORS[5] },
     { name: () => 'No online shopping', amount: 500, days: ALL_DAYS, mode: 'fixed', color: COLORS[6] },
     { name: () => 'Check my bank balance', amount: 0, days: ALL_DAYS, mode: 'fixed', color: COLORS[7] },
+    { name: () => 'Christmas fund', amount: 500, days: [5], mode: 'fixed', color: COLORS[6] },
   ];
 
   // ---------- Dates ----------
@@ -566,7 +629,7 @@ button { cursor: pointer; }
   const toInput = minor => minor ? (minor % 100 === 0 ? String(minor / 100) : (minor / 100).toFixed(2)) : '';
 
   // ---------- Storage ----------
-  function emptyState() { return { version: 1, currency: 'GBP', goal: null, habits: [], log: {}, sample: false }; }
+  function emptyState() { return { version: 1, currency: 'GBP', goal: null, habits: [], log: {}, sample: false, moved: [], payday: null, htsHidden: false }; }
 
   function normalize(s) {
     if (!s || !Array.isArray(s.habits) || typeof s.log !== 'object' || s.log === null) throw new Error('Not a Pocketed backup');
@@ -576,6 +639,13 @@ button { cursor: pointer; }
     if (s.goal && typeof s.goal.name === 'string' && Number.isInteger(s.goal.target) && s.goal.target > 0) {
       out.goal = { name: s.goal.name.slice(0, 40), target: s.goal.target };
     }
+    if (Array.isArray(s.moved)) {
+      for (const m of s.moved) {
+        if (m && typeof m.id === 'string' && KEY_RE.test(m.date) && Number.isInteger(m.amount) && m.amount > 0) out.moved.push({ id: m.id, date: m.date, amount: m.amount });
+      }
+    }
+    if (s.payday === 'last' || (Number.isInteger(s.payday) && s.payday >= 1 && s.payday <= 31)) out.payday = s.payday;
+    out.htsHidden = !!s.htsHidden;
     for (const h of s.habits) {
       if (!h || typeof h.id !== 'string' || typeof h.name !== 'string') continue;
       const days = Array.isArray(h.days) ? h.days.filter(d => Number.isInteger(d) && d >= 0 && d <= 6) : [];
@@ -613,6 +683,11 @@ button { cursor: pointer; }
     const s = emptyState();
     s.sample = true;
     s.goal = { name: 'Summer holiday', target: 100000 };
+    s.payday = 25;
+    s.moved = [
+      { id: uid(), date: keyOf(addDays(today(), -34)), amount: 20000 },
+      { id: uid(), date: keyOf(addDays(today(), -4)), amount: 25000 },
+    ];
     const t = today();
     const start = addDays(t, -60);
     const defs = [
@@ -729,17 +804,36 @@ button { cursor: pointer; }
   const CHECK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   let view = 'today';
 
+  // Payday in a given month. Weekend paydays move to the Friday before,
+  // as most UK employers do. Bank holidays are not accounted for.
+  function paydayIn(year, month) {
+    const last = new Date(year, month + 1, 0).getDate();
+    const day = state.payday === 'last' ? last : Math.min(state.payday, last);
+    let d = new Date(year, month, day);
+    while (d.getDay() === 0 || d.getDay() === 6) d = addDays(d, -1);
+    return d;
+  }
+  // Start of the current money month: the 1st, or the most recent payday.
+  function periodStart(t) {
+    if (!state.payday) return new Date(t.getFullYear(), t.getMonth(), 1);
+    const thisMonth = paydayIn(t.getFullYear(), t.getMonth());
+    return thisMonth <= t ? thisMonth : paydayIn(t.getFullYear(), t.getMonth() - 1);
+  }
+  function periodLabel() { return state.payday ? 'Since payday' : 'This month'; }
+
+  const movedTotal = () => state.moved.reduce((sum, m) => sum + m.amount, 0);
+
   function totals() {
     const t = today(), tk = keyOf(t);
     const weekStart = keyOf(addDays(t, -((t.getDay() + 6) % 7)));
-    const monthStart = keyOf(new Date(t.getFullYear(), t.getMonth(), 1));
+    const monthStart = keyOf(periodStart(t));
     let all = 0, week = 0, month = 0;
     for (const h of state.habits) {
       all += savedTotal(h);
       week += savedBetween(h, weekStart, tk);
       month += savedBetween(h, monthStart, tk);
     }
-    return { all, week, month };
+    return { all, week, month, moved: movedTotal() };
   }
 
   function render() {
@@ -762,28 +856,38 @@ button { cursor: pointer; }
   }
 
   function renderNote() {
-    const { all, week, month } = totals();
+    const { all, week, month, moved } = totals();
     const streak = overallStreak();
+    const toMove = Math.max(0, all - moved);
     let goalHtml = '';
     if (state.goal) {
       const pct = Math.min(100, Math.round(all / state.goal.target * 100));
+      const movedPct = Math.min(100, Math.round(moved / state.goal.target * 100));
       const left = state.goal.target - all;
       goalHtml = `<div class="goal">
         <div class="goal-top"><span>${esc(state.goal.name)}</span><span>${left > 0 ? `${money(left)} to go` : 'Goal reached'}</span></div>
-        <div class="goal-bar" role="progressbar" aria-label="${esc(state.goal.name)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>
+        <div class="goal-bar" role="progressbar" aria-label="${esc(state.goal.name)}: ${pct}% saved, ${movedPct}% moved to savings" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i class="est" style="width:${pct}%"></i><i style="width:${movedPct}%"></i></div>
       </div>`;
+    }
+    let movedHtml;
+    if (moved > 0) {
+      movedHtml = `<p class="note-moved"><b>${money(moved)}</b> moved to savings${toMove > 0 ? ` · ${money(toMove)} still to move` : ' · all moved'}</p>`;
+    } else {
+      movedHtml = `<p class="note-moved">Nothing moved to savings yet. Move it to make it real.</p>`;
     }
     $('note').innerHTML = `
       <p class="note-label">Saved so far</p>
       <p class="note-total" id="note-total">${money(all)}</p>
       <div class="note-row">
         <span>This week <b>${money(week)}</b></span>
-        <span>This month <b>${money(month)}</b></span>
+        <span>${periodLabel()} <b>${money(month)}</b></span>
         <span>Streak <b>${streak} day${streak === 1 ? '' : 's'}</b></span>
       </div>
+      ${movedHtml}
       ${goalHtml}
       <div class="note-actions">
-        <button class="note-btn solid" type="button" id="share-btn">Share progress</button>
+        <button class="note-btn solid" type="button" id="move-btn">I moved money</button>
+        <button class="note-btn" type="button" id="share-btn">Share progress</button>
         ${state.goal ? '' : '<button class="note-btn" type="button" data-view="settings">Set a savings goal</button>'}
       </div>`;
     $('note').hidden = state.habits.length === 0;
@@ -791,6 +895,7 @@ button { cursor: pointer; }
 
   function renderToday(t) {
     renderNote();
+    $('hts-tip').hidden = state.htsHidden || state.currency !== 'GBP' || state.habits.length === 0;
     const days = Array.from({ length: 7 }, (_, i) => addDays(t, i - 6));
     const tk = keyOf(t);
     $('week-head').innerHTML = days.map(d =>
@@ -873,6 +978,20 @@ button { cursor: pointer; }
 
   function renderSettings() {
     $('currency').value = state.currency;
+    if (!$('payday').options.length) {
+      const ord = n => n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th');
+      const opts = ['<option value="">No payday: use calendar months</option>', '<option value="last">Last working day of the month</option>'];
+      for (let d = 1; d <= 31; d++) opts.push(`<option value="${d}">${ord(d)} of the month</option>`);
+      $('payday').innerHTML = opts.join('');
+    }
+    $('payday').value = state.payday ? String(state.payday) : '';
+    if (state.payday) {
+      const t = today();
+      $('payday-hint').textContent = `Current money month started ${periodStart(t).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}. Weekend paydays move to the Friday before. Bank holidays aren't counted.`;
+    } else {
+      $('payday-hint').textContent = 'If payday falls on a weekend, Pocketed uses the Friday before. Bank holidays aren\'t counted.';
+    }
+    $('hts-show').hidden = !state.htsHidden;
     if (document.activeElement !== $('goal-name')) $('goal-name').value = state.goal ? state.goal.name : '';
     if (document.activeElement !== $('goal-amount')) $('goal-amount').value = state.goal ? toInput(state.goal.target) : '';
     $('goal-clear').hidden = !state.goal;
@@ -938,10 +1057,25 @@ button { cursor: pointer; }
     document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === draft.mode)));
     const step = draft.mode === 'step';
     $('amount-label').textContent = step ? 'Goes up by' : 'Saves each time';
-    $('amount-hint').textContent = step
-      ? `Day 1 saves this much, day 2 twice as much, and so on. At ${money(1)}, a full year adds up to ${money(66795)}.`
-      : "What you'd usually spend. Leave empty for habits without a price.";
+    updateAmountHint();
   }
+
+  // For "goes up" habits, show what a year adds up to: n ticks of 1x, 2x, 3x...
+  function updateAmountHint() {
+    if (draft.mode !== 'step') {
+      $('amount-hint').textContent = "What you'd usually spend. Leave empty for habits without a price.";
+      return;
+    }
+    const amt = parseMoney($('habit-amount').value) || 0;
+    const ticks = draft.days.length >= 7 ? 365 : Math.round(draft.days.length * 52);
+    const unit = draft.days.length === 1 ? 'Week' : 'Tick';
+    if (!amt || !ticks) {
+      $('amount-hint').textContent = 'Each time you tick it, it saves a bit more than the time before.';
+      return;
+    }
+    $('amount-hint').textContent = `${unit} 1 saves ${money(amt)}, ${unit.toLowerCase()} 2 saves ${money(amt * 2)}, ${unit.toLowerCase()} 3 saves ${money(amt * 3)}, and so on. Over a year (${ticks} ticks) that adds up to ${money(amt * ticks * (ticks + 1) / 2)}.`;
+  }
+  $('habit-amount').addEventListener('input', () => { if (draft) updateAmountHint(); });
 
   $('templates').addEventListener('click', e => {
     const b = e.target.closest('[data-tpl]'); if (!b) return;
@@ -994,6 +1128,7 @@ button { cursor: pointer; }
     if (e.key !== 'Escape') return;
     if (!$('scrim').hidden) closeSheet();
     if (!$('share-scrim').hidden) closeShare();
+    if (!$('move-scrim').hidden) closeMove();
   });
 
   $('delete-btn').addEventListener('click', () => {
@@ -1015,6 +1150,58 @@ button { cursor: pointer; }
       save(); render();
     });
   });
+
+  // ---------- Money moved to savings ----------
+  function renderMoveHistory() {
+    const recent = [...state.moved].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+    $('move-history-wrap').hidden = recent.length === 0;
+    $('move-history').innerHTML = recent.map(m =>
+      `<li><span>${money(m.amount)} <small>${parseKey(m.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</small></span>
+        <button class="link-btn" type="button" data-unmove="${m.id}" style="color:var(--danger)" aria-label="Remove ${esc(money(m.amount))}">Remove</button></li>`).join('');
+  }
+  function openMove() {
+    const { all, moved } = totals();
+    const toMove = Math.max(0, all - moved);
+    $('move-amount').value = toInput(toMove);
+    $('move-intro').textContent = toMove > 0
+      ? `You've saved ${money(toMove)} that isn't in savings yet. Moved some of it into a savings account or pot? Log it here.`
+      : 'Moved money into a savings account or pot? Log it here so your total is real money, not just an estimate.';
+    $('move-error').hidden = true;
+    renderMoveHistory();
+    $('move-scrim').hidden = false;
+  }
+  function closeMove() { $('move-scrim').hidden = true; }
+  function removeMove(id) {
+    const idx = state.moved.findIndex(m => m.id === id);
+    if (idx < 0) return;
+    const [removed] = state.moved.splice(idx, 1);
+    save(); renderMoveHistory(); render();
+    showToast(`Removed ${money(removed.amount)}`, () => { state.moved.push(removed); save(); renderMoveHistory(); render(); });
+  }
+  $('move-sheet').addEventListener('submit', e => {
+    e.preventDefault();
+    const amount = parseMoney($('move-amount').value);
+    const ok = amount !== null && amount > 0;
+    $('move-error').hidden = ok;
+    if (!ok) return;
+    state.moved.push({ id: uid(), date: keyOf(today()), amount });
+    save(); closeMove(); render();
+    showToast(`Logged ${money(amount)} moved to savings`);
+  });
+  $('move-cancel').addEventListener('click', closeMove);
+  $('move-scrim').addEventListener('click', e => { if (e.target === $('move-scrim')) closeMove(); });
+
+  // ---------- Payday and Help to Save settings ----------
+  $('payday').addEventListener('change', e => {
+    const v = e.target.value;
+    state.payday = v === 'last' ? 'last' : (v ? Number(v) : null);
+    save(); render();
+  });
+  $('hts-dismiss').addEventListener('click', () => {
+    state.htsHidden = true; save(); render();
+    showToast('Tip hidden. You can find it again in Settings.');
+  });
+  $('hts-show').addEventListener('click', () => { state.htsHidden = false; save(); render(); showToast('Tip will show on Today'); });
 
   // ---------- Share card ----------
   let shareFile = null, shareUrl = null;
@@ -1045,7 +1232,7 @@ button { cursor: pointer; }
     for (let r = 40; r < 1500; r += 22) { ctx.beginPath(); ctx.arc(W + 60, -80, r, 0, Math.PI * 2); ctx.stroke(); }
     for (let r = 40; r < 900; r += 30) { ctx.beginPath(); ctx.arc(-120, H + 60, r, 0, Math.PI * 2); ctx.stroke(); }
 
-    const { all, month } = totals();
+    const { all, month, moved } = totals();
     const streak = overallStreak();
     const pad = 96;
     ctx.fillStyle = gold; ctx.beginPath(); ctx.arc(pad + 30, 222, 30, 0, Math.PI * 2); ctx.fill();
@@ -1061,7 +1248,7 @@ button { cursor: pointer; }
     ctx.font = `500 52px ${body}`;
     ctx.fillText(streak ? `${streak}-day money streak` : 'by building better money habits', pad, 880);
     ctx.globalAlpha = .75; ctx.font = `500 40px ${body}`;
-    ctx.fillText(`${money(month)} this month`, pad, 950);
+    ctx.fillText(`${money(month)} ${periodLabel().toLowerCase()}${moved > 0 ? ` · ${money(moved)} in savings` : ''}`, pad, 950);
     ctx.globalAlpha = 1;
 
     // Top habits by money saved.
@@ -1145,6 +1332,9 @@ button { cursor: pointer; }
     const q = e.target.closest('[data-quick]');
     if (q) return addFromTemplate(Number(q.dataset.quick));
     if (e.target.closest('#share-btn')) return openShare();
+    if (e.target.closest('#move-btn')) return openMove();
+    const um = e.target.closest('[data-unmove]');
+    if (um) return removeMove(um.dataset.unmove);
     if (e.target.closest('[data-action="add"]')) return openSheet(null);
     const tab = e.target.closest('[data-view]');
     if (tab) { view = tab.dataset.view; render(); window.scrollTo(0, 0); }

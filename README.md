@@ -10,9 +10,12 @@ server. Data stays on the phone.
 ## Features
 
 - **Money habits** with an amount, e.g. "No takeaways" saves £12, "Coffee at home" saves £3.50.
-- **Goes up each day** mode for the 1p saving challenge (1p, 2p, 3p… which adds up to £667.95 over a year).
+- **Goes up each time** mode for the 1p saving challenge (£667.95 over a year) and the 52-week challenge (£1,378).
 - **Saved so far** total with this week, this month and an overall streak of days you kept every habit.
-- **Savings goal** with a progress bar.
+- **Savings goal** with a progress bar that shows both what you've saved and what you've actually moved to savings.
+- **"I moved money"**: log transfers into a savings account or pot, so the total is real money rather than an estimate.
+- **Payday months**: count the month from payday to payday (any day, or the last working day). Weekend paydays move to the Friday before; bank holidays aren't counted.
+- **Help to Save tip** (GBP only): points people on Universal Credit to the government's 50% bonus scheme on GOV.UK. Can be hidden.
 - **Share card**: a 1080×1920 image of your total, streak and top habits, ready for TikTok or Instagram Stories.
   Uses the phone's share sheet where available; otherwise press and hold the image to save it.
 - 8 ready-made habits (no-spend day, no takeaways, pack lunch, 1p challenge, …) plus custom ones.

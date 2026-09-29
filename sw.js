@@ -1,5 +1,5 @@
 // Offline cache for Pocketed. Bump VERSION whenever app files change.
-const VERSION = 'pocketed-v2';
+const VERSION = 'pocketed-v3';
 const SHELL = [
   './',
   'index.html',
