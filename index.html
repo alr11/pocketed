@@ -352,6 +352,13 @@ button { cursor: pointer; }
 }
 .toast button { background: none; border: 0; color: inherit; font-weight: 700; text-decoration: underline; padding: 4px; }
 
+.perks { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
+.badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 99px; background: var(--gold); color: var(--surface); font-size: 11px; font-weight: 700; letter-spacing: .04em; vertical-align: 1px; }
+.plus-active { color: var(--accent); font-weight: 700; }
+a.btn { display: inline-grid; place-items: center; text-decoration: none; }
+.toggle { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.toggle input { width: 22px; height: 22px; accent-color: var(--accent); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
@@ -415,6 +422,20 @@ button { cursor: pointer; }
           <button class="btn ghost" id="goal-clear" type="button">Remove goal</button>
         </div>
       </section>
+      <section id="plus-section" hidden>
+        <h3>Pocketed Plus</h3>
+        <div id="plus-status"></div>
+      </section>
+      <section>
+        <h3>Daily reminder</h3>
+        <p>Add a daily reminder to your phone's calendar. It works without an account and nothing is sent to us.</p>
+        <select class="input" id="reminder-time" aria-label="Reminder time"></select>
+        <div class="row">
+          <a class="btn primary" id="reminder-apple" target="_blank" rel="noopener">Add to Apple Calendar</a>
+          <a class="btn ghost" id="reminder-google" target="_blank" rel="noopener">Add to Google Calendar</a>
+        </div>
+        <p class="hint">On iPhone, tap “Add All” when the calendar opens. On Android, Google Calendar opens with the event filled in; check it repeats daily and tap Save.</p>
+      </section>
       <section>
         <h3>Payday</h3>
         <p>Pocketed can count your month from payday to payday, the way most people budget.</p>
@@ -458,6 +479,17 @@ button { cursor: pointer; }
           <label class="btn ghost" for="import-file" style="display:inline-grid;place-items:center">Import backup</label>
           <input id="import-file" type="file" accept="application/json,.json" hidden>
         </div>
+      </section>
+      <section id="counts-section" hidden>
+        <h3>Anonymous usage counts</h3>
+        <label class="toggle"><input type="checkbox" id="counts-toggle"> Help improve Pocketed</label>
+        <p>Pocketed counts things like “the app was opened today” or “a habit was added”. No names, amounts, habits or anything that identifies you are sent. Turn it off any time.</p>
+      </section>
+      <section>
+        <h3>Privacy</h3>
+        <p>Your habits, amounts and goals are stored only on this phone. Pocketed has no accounts and can't see your data.</p>
+        <p id="privacy-counts" hidden>If anonymous usage counts are on, Pocketed sends simple counts to GoatCounter, a privacy-friendly counting service. No cookies are used.</p>
+        <p id="privacy-plus" hidden>If you buy Plus, your licence key is checked with Lemon Squeezy, the payment provider, when you unlock it and about once a week after.</p>
       </section>
       <section>
         <h3>Start over</h3>
@@ -543,9 +575,29 @@ button { cursor: pointer; }
   </form>
 </div>
 
+<div class="scrim" id="plus-scrim" hidden>
+  <form class="sheet" id="plus-sheet" role="dialog" aria-modal="true" aria-labelledby="plus-title" novalidate>
+    <h2 id="plus-title">Pocketed Plus</h2>
+    <p class="hint" id="plus-reason" hidden></p>
+    <ul class="perks" id="plus-perks"></ul>
+    <p class="hint" id="plus-price-line"></p>
+    <a class="btn primary" id="plus-buy" target="_blank" rel="noopener">Get Plus</a>
+    <div class="field">
+      <label for="plus-key">Already bought it? Enter the licence key from your receipt email</label>
+      <input class="input" id="plus-key" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX">
+      <p class="error" id="plus-error" hidden></p>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn ghost" type="button" id="plus-close">Not now</button>
+      <button class="btn primary" type="submit" id="plus-activate">Unlock Plus</button>
+    </div>
+  </form>
+</div>
+
 <div class="scrim" id="share-scrim" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="share-title">
     <h2 id="share-title">Share your progress</h2>
+    <div class="chips" id="share-themes" role="group" aria-label="Card design"></div>
     <img class="share-img" id="share-img" alt="Your savings card">
     <p class="hint" id="share-hint">Press and hold the image to save it to Photos, then post it to TikTok or Stories.</p>
     <div class="sheet-actions">
@@ -562,6 +614,19 @@ button { cursor: pointer; }
   'use strict';
 
   const APP_NAME = 'Pocketed';
+  const APP_URL = 'https://alr11.github.io/pocketed/';
+
+  // ---------- Settings to fill in ----------
+  // GoatCounter site code: 'pocketed' means https://pocketed.goatcounter.com.
+  // Leave empty and nothing is counted or sent.
+  const GOATCOUNTER_CODE = '';
+  // Lemon Squeezy checkout link for Pocketed Plus. Leave empty and Plus is
+  // switched off: every feature stays free and no Plus screens appear.
+  const PLUS_CHECKOUT_URL = '';
+  const PLUS_PRICE = '£4.99';
+  // Optional Lemon Squeezy product ID (a number), so keys for other products are refused.
+  const PLUS_PRODUCT_ID = null;
+  const FREE_HABIT_LIMIT = 3;
   const STORE_KEY = 'pocketed-v1';
   const COLORS = ['#2e7d5b', '#3a6fb0', '#b0532e', '#8a4fb0', '#a8740b', '#1f8f94', '#c0456d', '#5a6b2e'];
   const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -629,7 +694,7 @@ button { cursor: pointer; }
   const toInput = minor => minor ? (minor % 100 === 0 ? String(minor / 100) : (minor / 100).toFixed(2)) : '';
 
   // ---------- Storage ----------
-  function emptyState() { return { version: 1, currency: 'GBP', goal: null, habits: [], log: {}, sample: false, moved: [], payday: null, htsHidden: false }; }
+  function emptyState() { return { version: 1, currency: 'GBP', goal: null, habits: [], log: {}, sample: false, moved: [], payday: null, htsHidden: false, counts: true, plus: null, reminderTime: '20:00', shareTheme: 'banknote', firstUsed: null, lastPing: null }; }
 
   function normalize(s) {
     if (!s || !Array.isArray(s.habits) || typeof s.log !== 'object' || s.log === null) throw new Error('Not a Pocketed backup');
@@ -646,6 +711,14 @@ button { cursor: pointer; }
     }
     if (s.payday === 'last' || (Number.isInteger(s.payday) && s.payday >= 1 && s.payday <= 31)) out.payday = s.payday;
     out.htsHidden = !!s.htsHidden;
+    out.counts = s.counts !== false;
+    if (s.plus && typeof s.plus.key === 'string' && s.plus.key) {
+      out.plus = { key: s.plus.key, instance: typeof s.plus.instance === 'string' ? s.plus.instance : null, checked: KEY_RE.test(s.plus.checked) ? s.plus.checked : null };
+    }
+    if (/^\d{2}:\d{2}$/.test(s.reminderTime)) out.reminderTime = s.reminderTime;
+    if (typeof s.shareTheme === 'string') out.shareTheme = s.shareTheme;
+    out.firstUsed = KEY_RE.test(s.firstUsed) ? s.firstUsed : keyOf(today());
+    out.lastPing = KEY_RE.test(s.lastPing) ? s.lastPing : null;
     for (const h of s.habits) {
       if (!h || typeof h.id !== 'string' || typeof h.name !== 'string') continue;
       const days = Array.isArray(h.days) ? h.days.filter(d => Number.isInteger(d) && d >= 0 && d <= 6) : [];
@@ -682,6 +755,7 @@ button { cursor: pointer; }
   function sampleState() {
     const s = emptyState();
     s.sample = true;
+    s.firstUsed = keyOf(today());
     s.goal = { name: 'Summer holiday', target: 100000 };
     s.payday = 25;
     s.moved = [
@@ -992,6 +1066,12 @@ button { cursor: pointer; }
       $('payday-hint').textContent = 'If payday falls on a weekend, Pocketed uses the Friday before. Bank holidays aren\'t counted.';
     }
     $('hts-show').hidden = !state.htsHidden;
+    renderReminder();
+    renderPlusStatus();
+    $('counts-section').hidden = !GOATCOUNTER_CODE;
+    $('counts-toggle').checked = state.counts;
+    $('privacy-counts').hidden = !GOATCOUNTER_CODE;
+    $('privacy-plus').hidden = !plusEnabled();
     if (document.activeElement !== $('goal-name')) $('goal-name').value = state.goal ? state.goal.name : '';
     if (document.activeElement !== $('goal-amount')) $('goal-amount').value = state.goal ? toInput(state.goal.target) : '';
     $('goal-clear').hidden = !state.goal;
@@ -1014,11 +1094,13 @@ button { cursor: pointer; }
   }
 
   function addFromTemplate(i) {
+    if (!canAddHabit()) return openPlus('habits');
     const tp = TEMPLATES[i];
     const id = uid();
     state.habits.push({ id, name: tp.name(), color: tp.color, days: [...tp.days], created: keyOf(today()), amount: tp.amount, mode: tp.mode });
     state.log[id] = {};
     save(); render();
+    track('/event/habit-added/' + tp.name().toLowerCase().replace(/[^a-z0-9]+/g, '-'), 'Habit added from template');
     showToast(`Added “${tp.name()}”`);
   }
 
@@ -1117,6 +1199,7 @@ button { cursor: pointer; }
       const id = uid();
       state.habits.push({ id, name, color: draft.color, days, created: keyOf(today()), amount, mode: draft.mode });
       state.log[id] = {};
+      track(draft.tpl === null ? '/event/habit-added/custom' : '/event/habit-added/' + TEMPLATES[draft.tpl].name().toLowerCase().replace(/[^a-z0-9]+/g, '-'), 'Habit added');
     }
     save(); closeSheet();
     view = 'today'; render();
@@ -1129,6 +1212,7 @@ button { cursor: pointer; }
     if (!$('scrim').hidden) closeSheet();
     if (!$('share-scrim').hidden) closeShare();
     if (!$('move-scrim').hidden) closeMove();
+    if (!$('plus-scrim').hidden) closePlus();
   });
 
   $('delete-btn').addEventListener('click', () => {
@@ -1186,6 +1270,7 @@ button { cursor: pointer; }
     if (!ok) return;
     state.moved.push({ id: uid(), date: keyOf(today()), amount });
     save(); closeMove(); render();
+    track('/event/moved-money', 'Money moved to savings');
     showToast(`Logged ${money(amount)} moved to savings`);
   });
   $('move-cancel').addEventListener('click', closeMove);
@@ -1224,11 +1309,13 @@ button { cursor: pointer; }
     const ctx = c.getContext('2d');
     const display = '"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif';
     const body = 'Figtree, -apple-system, system-ui, sans-serif';
-    const green = '#0f5c4a', paper = '#f3efe0', gold = '#e2b54a';
+    const theme = SHARE_THEMES[currentTheme()];
+    const paper = theme.fg, gold = theme.accent;
+    const tint = a => rgba(theme.fg, a);
 
-    ctx.fillStyle = green; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = theme.bg; ctx.fillRect(0, 0, W, H);
     // Engraved rings, like a banknote.
-    ctx.strokeStyle = 'rgba(243,239,224,.08)'; ctx.lineWidth = 2;
+    ctx.strokeStyle = tint(.08); ctx.lineWidth = 2;
     for (let r = 40; r < 1500; r += 22) { ctx.beginPath(); ctx.arc(W + 60, -80, r, 0, Math.PI * 2); ctx.stroke(); }
     for (let r = 40; r < 900; r += 30) { ctx.beginPath(); ctx.arc(-120, H + 60, r, 0, Math.PI * 2); ctx.stroke(); }
 
@@ -1256,7 +1343,7 @@ button { cursor: pointer; }
       .sort((a, b) => b.v - a.v || b.s - a.s).slice(0, 3);
     let y = 1080;
     for (const { h, v, s } of top) {
-      ctx.fillStyle = 'rgba(243,239,224,.1)'; roundRect(ctx, pad, y, W - pad * 2, 150, 28); ctx.fill();
+      ctx.fillStyle = tint(.1); roundRect(ctx, pad, y, W - pad * 2, 150, 28); ctx.fill();
       ctx.fillStyle = h.color; ctx.beginPath(); ctx.arc(pad + 56, y + 75, 16, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = paper;
       const name = h.name.length > 22 ? h.name.slice(0, 21) + '…' : h.name;
@@ -1274,7 +1361,7 @@ button { cursor: pointer; }
       const pct = Math.min(1, all / state.goal.target);
       ctx.fillStyle = paper; ctx.font = `600 38px ${body}`;
       ctx.fillText(`${state.goal.name}: ${Math.round(pct * 100)}% of ${money(state.goal.target)}`, pad, y + 60);
-      ctx.fillStyle = 'rgba(243,239,224,.18)'; roundRect(ctx, pad, y + 90, W - pad * 2, 22, 11); ctx.fill();
+      ctx.fillStyle = tint(.18); roundRect(ctx, pad, y + 90, W - pad * 2, 22, 11); ctx.fill();
       ctx.fillStyle = gold; roundRect(ctx, pad, y + 90, Math.max(22, (W - pad * 2) * pct), 22, 11); ctx.fill();
     }
     ctx.fillStyle = paper; ctx.globalAlpha = .6;
@@ -1284,11 +1371,25 @@ button { cursor: pointer; }
     return new Promise(res => c.toBlob(res, 'image/png'));
   }
 
+  function renderThemeChips() {
+    $('share-themes').innerHTML = Object.entries(SHARE_THEMES).map(([id, t]) =>
+      `<button type="button" class="chip" data-theme="${id}" aria-pressed="${currentTheme() === id}">${t.name}${t.plus && !hasPlus() ? '<span class="badge">PLUS</span>' : ''}</button>`).join('');
+  }
+  $('share-themes').addEventListener('click', e => {
+    const b = e.target.closest('[data-theme]'); if (!b) return;
+    const t = SHARE_THEMES[b.dataset.theme];
+    if (t.plus && !hasPlus()) { closeShare(); return openPlus('themes'); }
+    state.shareTheme = b.dataset.theme; save();
+    openShare();
+  });
+
   async function openShare() {
     $('share-scrim').hidden = false;
+    renderThemeChips();
     $('share-img').removeAttribute('src');
     $('share-go').hidden = true;
     const blob = await buildShareCard();
+    track('/event/share-card/' + currentTheme(), 'Share card made');
     if (!blob) { $('share-hint').textContent = 'Couldn’t make the image on this device.'; return; }
     if (shareUrl) URL.revokeObjectURL(shareUrl);
     shareUrl = URL.createObjectURL(blob);
@@ -1306,6 +1407,192 @@ button { cursor: pointer; }
     if (!shareFile) return;
     try { await navigator.share({ files: [shareFile], text: `Saving with ${APP_NAME}` }); }
     catch (e) { if (e && e.name !== 'AbortError') showToast('Sharing didn’t work. Press and hold the image to save it instead.'); }
+  });
+
+  // ---------- Pocketed Plus (Lemon Squeezy licence keys) ----------
+  const SHARE_THEMES = {
+    banknote: { name: 'Banknote', bg: '#0f5c4a', fg: '#f3efe0', accent: '#e2b54a', plus: false },
+    midnight: { name: 'Midnight', bg: '#141a2e', fg: '#efe7cf', accent: '#e8b64c', plus: true },
+    blush: { name: 'Blush', bg: '#f4e4dc', fg: '#3b1f18', accent: '#a4461f', plus: true },
+  };
+  function rgba(hex, a) {
+    const n = parseInt(hex.slice(1), 16);
+    return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;
+  }
+  const plusEnabled = () => !!PLUS_CHECKOUT_URL;
+  // With Plus switched off, everyone gets everything.
+  const hasPlus = () => !plusEnabled() || !!state.plus;
+  const canAddHabit = () => hasPlus() || state.sample || state.habits.length < FREE_HABIT_LIMIT;
+  function currentTheme() {
+    const t = SHARE_THEMES[state.shareTheme] ? state.shareTheme : 'banknote';
+    return SHARE_THEMES[t].plus && !hasPlus() ? 'banknote' : t;
+  }
+
+  const LS_API = 'https://api.lemonsqueezy.com/v1/licenses/';
+  async function licenceCall(action, params) {
+    const r = await fetch(LS_API + action, {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      body: new URLSearchParams(params),
+    });
+    let j = {};
+    try { j = await r.json(); } catch (e) {}
+    return j;
+  }
+  function deviceLabel() {
+    const ua = navigator.userAgent;
+    const kind = /iPhone|iPad/.test(ua) ? 'iPhone' : /Android/.test(ua) ? 'Android' : 'Browser';
+    return `${APP_NAME} on ${kind}, ${new Date().toLocaleDateString('en-GB')}`;
+  }
+
+  function openPlus(reason) {
+    if (!plusEnabled()) return;
+    const reasons = {
+      habits: `The free version tracks up to ${FREE_HABIT_LIMIT} habits. Plus removes the limit.`,
+      themes: 'Midnight and Blush card designs come with Plus.',
+    };
+    $('plus-reason').hidden = !reasons[reason];
+    $('plus-reason').textContent = reasons[reason] || '';
+    $('plus-perks').innerHTML = [
+      `Unlimited money habits (free: ${FREE_HABIT_LIMIT})`,
+      '2 extra share card designs: Midnight and Blush',
+      'Future Plus features at no extra cost',
+      'Supports an independent UK app',
+    ].map(x => `<li>${x}</li>`).join('');
+    $('plus-price-line').textContent = `One payment of ${PLUS_PRICE}. No subscription. Paid securely through Lemon Squeezy, which emails you a licence key.`;
+    $('plus-buy').href = PLUS_CHECKOUT_URL;
+    $('plus-buy').textContent = `Get Plus for ${PLUS_PRICE}`;
+    $('plus-error').hidden = true;
+    $('plus-key').value = '';
+    $('plus-scrim').hidden = false;
+    track('/event/plus/opened' + (reason ? '/' + reason : ''), 'Plus screen opened');
+  }
+  function closePlus() { $('plus-scrim').hidden = true; }
+  $('plus-close').addEventListener('click', closePlus);
+  $('plus-scrim').addEventListener('click', e => { if (e.target === $('plus-scrim')) closePlus(); });
+  $('plus-buy').addEventListener('click', () => track('/event/plus/checkout', 'Plus checkout opened'));
+
+  $('plus-sheet').addEventListener('submit', async e => {
+    e.preventDefault();
+    const key = $('plus-key').value.trim();
+    const err = msg => { $('plus-error').textContent = msg; $('plus-error').hidden = false; };
+    if (!key) return err('Paste the licence key from your receipt email.');
+    $('plus-activate').disabled = true;
+    $('plus-activate').textContent = 'Checking…';
+    try {
+      const j = await licenceCall('activate', { license_key: key, instance_name: deviceLabel() });
+      if (!j.activated) return err(j.error ? `That key didn't work: ${j.error}` : "That key didn't work. Check it matches your receipt email.");
+      if (PLUS_PRODUCT_ID && j.meta && j.meta.product_id !== PLUS_PRODUCT_ID) {
+        // Give back the device slot Lemon Squeezy just used for the other product.
+        if (j.instance && j.instance.id) licenceCall('deactivate', { license_key: key, instance_id: String(j.instance.id) }).catch(() => {});
+        return err('That key is for a different product.');
+      }
+      state.plus = { key, instance: j.instance && j.instance.id ? String(j.instance.id) : null, checked: keyOf(today()) };
+      save(); closePlus(); render();
+      track('/event/plus/activated', 'Plus activated');
+      showToast('Plus unlocked. Thank you!');
+    } catch (ex) {
+      err("Couldn't reach the payment provider. Check your internet connection and try again.");
+    } finally {
+      $('plus-activate').disabled = false;
+      $('plus-activate').textContent = 'Unlock Plus';
+    }
+  });
+
+  // Re-check the key about once a week. Only a clear "not valid" answer
+  // (refunded or disabled) removes Plus; being offline never does.
+  async function recheckPlus() {
+    if (!plusEnabled() || !state.plus || !navigator.onLine) return;
+    const last = state.plus.checked ? parseKey(state.plus.checked) : null;
+    if (last && (today() - last) / 864e5 < 7) return;
+    try {
+      const params = { license_key: state.plus.key };
+      if (state.plus.instance) params.instance_id = state.plus.instance;
+      const j = await licenceCall('validate', params);
+      if (j.valid === true) { state.plus.checked = keyOf(today()); save(); }
+      else if (j.valid === false) { state.plus = null; save(); render(); showToast('Your Plus licence is no longer active on this phone.'); }
+    } catch (e) { /* offline or blocked: try again next time */ }
+  }
+
+  function renderPlusStatus() {
+    $('plus-section').hidden = !plusEnabled();
+    if (!plusEnabled()) return;
+    $('plus-status').innerHTML = state.plus
+      ? `<p class="plus-active">Plus is active on this phone.</p>
+         <p>Moving to a new phone? Remove it here first, then enter your key on the new phone.</p>
+         <div class="row"><button class="btn ghost" type="button" id="plus-remove">Remove Plus from this phone</button></div>`
+      : `<p>Unlimited habits and extra share card designs for a one-off ${PLUS_PRICE}.</p>
+         <div class="row"><button class="btn primary" type="button" data-action="plus">See Plus</button></div>`;
+    const rm = $('plus-remove');
+    if (rm) rm.addEventListener('click', async () => {
+      const p = state.plus;
+      try { if (p.instance) await licenceCall('deactivate', { license_key: p.key, instance_id: p.instance }); } catch (e) {}
+      state.plus = null; save(); render();
+      showToast('Plus removed from this phone');
+    });
+  }
+
+  // ---------- Calendar reminders ----------
+  // Real push notifications need a server. A repeating calendar event works on
+  // every phone with nothing to run, so that's what reminders use for now.
+  function renderReminder() {
+    const sel = $('reminder-time');
+    if (!sel.options.length) {
+      const opts = [];
+      for (let m = 6 * 60; m < 24 * 60; m += 30) {
+        const hh = pad(Math.floor(m / 60)), mm = pad(m % 60);
+        const label = new Date(2026, 0, 1, m / 60 | 0, m % 60).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+        opts.push(`<option value="${hh}:${mm}">${label}</option>`);
+      }
+      sel.innerHTML = opts.join('');
+    }
+    sel.value = state.reminderTime;
+    const [hh, mm] = state.reminderTime.split(':');
+    $('reminder-apple').href = `reminders/${hh}-${mm}.ics`;
+    const endMin = +hh * 60 + +mm + 5;
+    const start = `20261001T${hh}${mm}00`, endFixed = `20261001T${pad(endMin / 60 | 0)}${pad(endMin % 60)}00`;
+    $('reminder-google').href = 'https://calendar.google.com/calendar/render?' + new URLSearchParams({
+      action: 'TEMPLATE',
+      text: `Tick off your ${APP_NAME} habits`,
+      details: `Open ${APP_NAME} and tick today's money habits: ${APP_URL}`,
+      dates: `${start}/${endFixed}`,
+      recur: 'RRULE:FREQ=DAILY',
+    });
+  }
+  $('reminder-time').addEventListener('change', e => { state.reminderTime = e.target.value; save(); renderReminder(); });
+  $('reminder-apple').addEventListener('click', () => track('/event/reminder/apple', 'Reminder added'));
+  $('reminder-google').addEventListener('click', () => track('/event/reminder/google', 'Reminder added'));
+
+  // ---------- Anonymous usage counts (GoatCounter) ----------
+  // Sends a path like "/event/share-card" and nothing else: no names, amounts
+  // or IDs. GoatCounter uses no cookies. Off when GOATCOUNTER_CODE is empty or
+  // the person turns it off in Settings.
+  function track(path, title) {
+    if (!GOATCOUNTER_CODE || !state.counts) return;
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') return;
+    const url = `https://${GOATCOUNTER_CODE}.goatcounter.com/count?` + new URLSearchParams({
+      p: path, t: title || path, e: 'true', rnd: Math.random().toString(36).slice(2),
+    });
+    try {
+      if (navigator.sendBeacon) navigator.sendBeacon(url);
+      else fetch(url, { method: 'POST', mode: 'no-cors', keepalive: true }).catch(() => {});
+    } catch (e) {}
+  }
+  // Once a day: "opened today", plus how many weeks since this phone started
+  // using Pocketed. Comparing week-0 with week-2 counts shows whether people stick with it.
+  function dailyPing() {
+    const tk = keyOf(today());
+    if (state.lastPing === tk) return;
+    state.lastPing = tk; save();
+    const weeks = Math.floor((today() - parseKey(state.firstUsed || tk)) / (7 * 864e5));
+    const bucket = weeks <= 3 ? `week-${weeks}` : weeks <= 7 ? 'week-4-7' : 'week-8-plus';
+    track('/open', 'App opened');
+    track('/active/' + bucket, `Active in ${bucket}`);
+  }
+  $('counts-toggle').addEventListener('change', e => {
+    if (!e.target.checked) track('/event/counts-off', 'Counts turned off');
+    state.counts = e.target.checked; save();
+    showToast(state.counts ? 'Anonymous counts on' : 'Anonymous counts off');
   });
 
   // ---------- Toast ----------
@@ -1335,14 +1622,18 @@ button { cursor: pointer; }
     if (e.target.closest('#move-btn')) return openMove();
     const um = e.target.closest('[data-unmove]');
     if (um) return removeMove(um.dataset.unmove);
-    if (e.target.closest('[data-action="add"]')) return openSheet(null);
+    if (e.target.closest('[data-action="add"]')) return canAddHabit() ? openSheet(null) : openPlus('habits');
+    if (e.target.closest('[data-action="plus"]')) return openPlus(null);
     const tab = e.target.closest('[data-view]');
     if (tab) { view = tab.dataset.view; render(); window.scrollTo(0, 0); }
   });
 
   $('clear-samples').addEventListener('click', () => {
-    const cur = state.currency;
-    state = emptyState(); state.currency = cur; save(); render();
+    track('/event/examples-cleared', 'Examples cleared');
+    const prev = state;
+    state = emptyState();
+    Object.assign(state, { currency: prev.currency, plus: prev.plus, counts: prev.counts, firstUsed: prev.firstUsed, lastPing: prev.lastPing, reminderTime: prev.reminderTime, payday: prev.payday });
+    save(); render();
   });
 
   // ---------- Settings ----------
@@ -1364,7 +1655,8 @@ button { cursor: pointer; }
   });
 
   $('export-btn').addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const { plus, ...exportable } = state;
+    const blob = new Blob([JSON.stringify(exportable, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `pocketed-backup-${keyOf(today())}.json`;
@@ -1378,6 +1670,7 @@ button { cursor: pointer; }
     if (!file) return;
     try {
       const next = normalize(JSON.parse(await file.text()));
+      next.plus = state.plus;
       const prev = state;
       state = next; save(); render();
       showToast(`Imported ${next.habits.length} habit${next.habits.length === 1 ? '' : 's'}`, () => { state = prev; save(); render(); });
@@ -1397,7 +1690,7 @@ button { cursor: pointer; }
       return;
     }
     const prev = state;
-    state = emptyState(); state.currency = prev.currency; save();
+    state = emptyState(); state.currency = prev.currency; state.plus = prev.plus; state.counts = prev.counts; state.firstUsed = prev.firstUsed; save();
     resetArmed = false; btn.textContent = 'Delete everything'; btn.classList.remove('armed');
     view = 'today'; render();
     showToast('Everything deleted', () => { state = prev; save(); render(); });
@@ -1423,6 +1716,9 @@ button { cursor: pointer; }
   }
 
   render();
+  dailyPing();
+  recheckPlus();
+  window.addEventListener('online', recheckPlus);
 })();
 </script>
 </body>

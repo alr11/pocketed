@@ -1,0 +1,22 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Pocketed//Daily reminder//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:pocketed-daily-1530@alr11.github.io
+DTSTAMP:20261001T000000Z
+DTSTART:20261001T153000
+DTEND:20261001T153500
+RRULE:FREQ=DAILY
+SUMMARY:Tick off your Pocketed habits
+DESCRIPTION:Open Pocketed and tick today's money habits: https://alr11.github.io/pocketed/
+URL:https://alr11.github.io/pocketed/
+TRANSP:TRANSPARENT
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:Tick off your Pocketed habits
+TRIGGER:PT0M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
